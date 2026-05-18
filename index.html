@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>IMC 통합 성과 대시보드</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --row-h: 44px;
+    --header-h: 64px;
+    --side-w: 168px;
+    --day-w: 38px;
+    --accent: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    font-size: 13px;
+  }
+
+  /* ===== Top bar ===== */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    min-width: var(--side-w);
+  }
+  .logo-mark {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, #0f172a, #334155);
+    color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 18px;
+  }
+  .logo-title { line-height: 1.1; }
+  .logo-title .t1 { font-weight: 700; font-size: 14px; }
+  .logo-title .t2 { font-size: 11px; color: var(--muted); }
+
+  .filters { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+  .filters select {
+    appearance: none;
+    background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%236b7280' d='M0 0l5 6 5-6z'/></svg>") no-repeat right 10px center;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 8px 30px 8px 12px;
+    font-size: 13px; color: var(--text); cursor: pointer; min-width: 140px;
+  }
+  .filters select:focus { outline: 2px solid #93c5fd; border-color: #93c5fd; }
+
+  .right-tools { display: flex; align-items: center; gap: 14px; }
+  .feedback-btn {
+    border: 1px solid #fecaca; background: #fff5f5; color: #b91c1c;
+    padding: 7px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    display: inline-flex; gap: 6px; align-items: center;
+  }
+  .meta-date { font-size: 12px; color: var(--muted); }
+  .meta-date b { color: var(--accent); margin-left: 4px; }
+
+  /* ===== Calendar shell ===== */
+  .board {
+    margin: 14px 18px 40px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .board-scroll { overflow: auto; max-height: calc(100vh - 140px); }
+  .grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--side-w) max-content;
+  }
+
+  /* Side (channel) column */
+  .side-head {
+    background: #fafbfc; border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    position: sticky; top: 0; left: 0; z-index: 10;
+  }
+  .side-cell {
+    height: var(--row-h);
+    display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: #fff;
+    font-weight: 600; font-size: 13px;
+  }
+  /* 좌측 컬럼 전체를 통째로 sticky — 가로 스크롤해도 채널 라벨이 왼쪽에 고정 */
+  #sideBody {
+    position: sticky; left: 0; z-index: 6;
+    background: #fff;
+    width: var(--side-w);
+  }
+  .side-cell .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .side-cell .chev { margin-left: auto; color: #9ca3af; font-size: 14px; }
+  .year-tag {
+    height: 28px; display: inline-flex; align-items: center; padding: 0 10px;
+    background: #ede9fe; color: #6d28d9;
+    border-radius: 6px; font-weight: 700; font-size: 12px;
+    margin: 8px 0 4px 14px;
+  }
+  .year-tag.y25 { background: #ffedd5; color: #c2410c; }
+  .side-section-divider {
+    height: 12px; background: #f3f4f6; border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  /* Calendar body */
+  .cal-head {
+    border-bottom: 1px solid var(--border);
+    background: #fafbfc;
+    position: sticky; top: 0; z-index: 3;
+  }
+  .month-row {
+    height: 22px; display: grid; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .month-cell {
+    text-align: center; font-weight: 700; font-size: 13px;
+    border-right: 1px solid var(--border); color: #111827;
+  }
+  .month-cell:last-child { border-right: none; }
+  .week-row {
+    height: 20px; display: grid; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .week-cell {
+    text-align: center; font-size: 11px; color: var(--muted);
+    border-right: 1px solid var(--border);
+  }
+  .week-cell:last-child { border-right: none; }
+  .day-row { height: 22px; display: grid; align-items: center; }
+  .day-cell {
+    text-align: center; font-size: 12px; color: #374151;
+    border-right: 1px solid var(--border);
+    line-height: 22px;
+  }
+  .day-cell.weekend { color: #ef4444; }
+  .day-cell.today { background: #fee2e2; color: #b91c1c; font-weight: 700; }
+  .day-cell:last-child { border-right: none; }
+
+  /* Channel row body (bars) */
+  .rows-area { position: relative; }
+  .channel-row {
+    position: relative;
+    height: var(--row-h);
+    border-bottom: 1px solid var(--border);
+    background:
+      repeating-linear-gradient(90deg,
+        transparent, transparent calc(var(--day-w) - 1px),
+        #eef0f4 calc(var(--day-w) - 1px), #eef0f4 var(--day-w));
+  }
+  .channel-row.holiday-row {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-divider-row {
+    height: 12px; background: #f3f4f6; border-bottom: 1px solid var(--border);
+  }
+
+  /* Bars */
+  .bar {
+    position: absolute; top: 6px; height: calc(var(--row-h) - 12px);
+    border-radius: 6px;
+    color: #fff; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 8px; overflow: hidden; white-space: nowrap;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+    cursor: default;
+  }
+  .bar .nm { overflow: hidden; text-overflow: ellipsis; }
+  .bar .tag {
+    background: rgba(255,255,255,0.85);
+    color: #111827;
+    font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .bar.dim { opacity: 0.45; }
+  .bar.ended { opacity: 0.65; }
+
+  /* Holiday markers (top "주요 일정") */
+  .holiday-row { display: block; }
+  .holiday {
+    position: absolute; top: 6px; height: calc(var(--row-h) - 12px);
+    border-radius: 4px; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px;
+  }
+  .holiday.red { background: #fee2e2; color: #b91c1c; }
+  .holiday.amber { background: #fef3c7; color: #92400e; }
+  .holiday.blue { background: #dbeafe; color: #1e40af; }
+  .holiday.green { background: #dcfce7; color: #15803d; }
+
+  /* Today vertical line */
+  .today-line {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: #ef4444; z-index: 2; pointer-events: none;
+  }
+
+  /* Tooltip */
+  .tt {
+    position: fixed; z-index: 99;
+    background: #111827; color: #fff;
+    padding: 8px 10px; border-radius: 6px; font-size: 12px;
+    pointer-events: none; opacity: 0; transition: opacity .12s;
+    box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    max-width: 260px;
+  }
+  .tt b { color: #fde68a; }
+
+  /* Legend */
+  .legend {
+    margin: 10px 18px 0;
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 12px; color: var(--muted);
+  }
+  .legend .item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">F</div>
+    <div class="logo-title">
+      <div class="t1">IMC 통합 성과 대시보드</div>
+      <div class="t2">Performance Monitoring System</div>
+    </div>
+  </div>
+  <div class="filters">
+    <select id="brandSel"></select>
+    <select id="channelSel">
+      <option value="ALL">전체 채널</option>
+    </select>
+    <select>
+      <option>2026 / 2025 비교</option>
+      <option>2026 단독</option>
+    </select>
+    <select>
+      <option>누적</option>
+      <option>일별</option>
+    </select>
+    <select id="statusSel">
+      <option value="ALL">전체 구분</option>
+      <option>진행중</option>
+      <option>예정</option>
+      <option>종료</option>
+    </select>
+    <select>
+      <option>전체 유형</option>
+      <option>기획전</option>
+      <option>프로모션</option>
+      <option>쿠폰</option>
+    </select>
+  </div>
+  <div class="right-tools">
+    <button class="feedback-btn">💬 피드백 보내기</button>
+    <div class="meta-date">기준일: <b id="todayLabel"></b></div>
+  </div>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div class="board">
+  <div class="board-scroll" id="boardScroll">
+    <div class="grid" id="grid">
+      <!-- side header (col 1, rows: head) -->
+      <div class="side-head" id="sideHead"></div>
+      <!-- calendar head (col 2, rows: head) -->
+      <div class="cal-head" id="calHead"></div>
+
+      <!-- left side list (col 1, rows: body) -->
+      <div id="sideBody"></div>
+      <!-- bar rows (col 2, rows: body) -->
+      <div class="rows-area" id="rowsArea"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tt" id="tt"></div>
+
+<script>
+/* ===== Inline data (fallback if fetch('data.json') is blocked by file:// ) ===== */
+let DATA = [
+  {
+    "BRAND": "MLB",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "봄맞이 할인전",
+    "START_DATE": "2026.4.15",
+    "END_DATE": "2026.5.10",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "MLB",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "어버이날 기획전",
+    "START_DATE": "2026.5.1",
+    "END_DATE": "2026.5.15",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "MLB",
+    "CHANNEL": "무신사",
+    "PROMO_NAME": "MLB 신상 발매",
+    "START_DATE": "2026.4.20",
+    "END_DATE": "2026.5.8",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "MLB",
+    "CHANNEL": "무신사",
+    "PROMO_NAME": "스프링 컬렉션",
+    "START_DATE": "2026.5.10",
+    "END_DATE": "2026.5.25",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "MLB",
+    "CHANNEL": "SSF샵",
+    "PROMO_NAME": "MLB X SSF 단독",
+    "START_DATE": "2026.5.5",
+    "END_DATE": "2026.5.18",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "DISCOVERY",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "가정의달 특가",
+    "START_DATE": "2026.5.1",
+    "END_DATE": "2026.5.14",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "DISCOVERY",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "여름 캠핑 기획전",
+    "START_DATE": "2026.5.20",
+    "END_DATE": "2026.6.15",
+    "STATUS": "예정"
+  },
+  {
+    "BRAND": "DISCOVERY",
+    "CHANNEL": "무신사",
+    "PROMO_NAME": "디스커버리 봄세일",
+    "START_DATE": "2026.4.25",
+    "END_DATE": "2026.5.9",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "DISCOVERY",
+    "CHANNEL": "무신사",
+    "PROMO_NAME": "썸머 룩북",
+    "START_DATE": "2026.5.15",
+    "END_DATE": "2026.5.30",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "DISCOVERY",
+    "CHANNEL": "SSG닷컴",
+    "PROMO_NAME": "프리미엄 백팩 단독",
+    "START_DATE": "2026.5.1",
+    "END_DATE": "2026.5.17",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "DUVETICA",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "F/W 프리오더",
+    "START_DATE": "2026.4.10",
+    "END_DATE": "2026.5.5",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "DUVETICA",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "스프링 클리어런스",
+    "START_DATE": "2026.5.1",
+    "END_DATE": "2026.5.20",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "STRETCH ANGELS",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "화이트데이 기획전",
+    "START_DATE": "2026.3.1",
+    "END_DATE": "2026.3.15",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "STRETCH ANGELS",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "라이트백 출시",
+    "START_DATE": "2026.5.10",
+    "END_DATE": "2026.5.19",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "STRETCH ANGELS",
+    "CHANNEL": "29CM",
+    "PROMO_NAME": "SA X 29CM 콜라보",
+    "START_DATE": "2026.5.12",
+    "END_DATE": "2026.5.26",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "SUPRA",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "스니커즈 페스타",
+    "START_DATE": "2026.4.20",
+    "END_DATE": "2026.5.11",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "SUPRA",
+    "CHANNEL": "무신사",
+    "PROMO_NAME": "SUPRA 신상",
+    "START_DATE": "2026.5.5",
+    "END_DATE": "2026.6.5",
+    "STATUS": "진행중"
+  },
+  {
+    "BRAND": "TAILORED",
+    "CHANNEL": "자사몰",
+    "PROMO_NAME": "봄 클래식",
+    "START_DATE": "2026.4.15",
+    "END_DATE": "2026.5.10",
+    "STATUS": "종료"
+  },
+  {
+    "BRAND": "TAILORED",
+    "CHANNEL": "SSF샵",
+    "PROMO_NAME": "비즈니스 캐주얼",
+    "START_DATE": "2026.5.1",
+    "END_DATE": "2026.5.20",
+    "STATUS": "진행중"
+  }
+];
+
+/* ===== Configuration ===== */
+const TODAY = new Date(2026, 4, 18); // 2026-05-18 (기준일)
+const DOW_LABEL = ["일","월","화","수","목","금","토"];
+const RANGE_START = new Date(2026, 2, 1);   // 2026-03-01
+const RANGE_END   = new Date(2026, 6, 1);   // 2026-07-01 (4개월, 가로 스크롤)
+const DAY_W = 38;
+
+const CHANNEL_ORDER = ["자사몰","SSF샵","무신사","SSG닷컴","신세계V","네이버스토어","더카트골프","롯데ON","29CM","기타 제휴몰"];
+const CHANNEL_COLOR = {
+  "자사몰":      "#f97316",
+  "SSF샵":       "#3b82f6",
+  "무신사":      "#111827",
+  "SSG닷컴":     "#facc15",
+  "신세계V":     "#7c2d12",
+  "네이버스토어":"#22c55e",
+  "더카트골프":  "#8b5cf6",
+  "롯데ON":      "#ef4444",
+  "29CM":        "#0ea5e9",
+  "기타 제휴몰": "#9ca3af",
+};
+
+const HOLIDAYS_2026 = [
+  { date:"2026-05-05", label:"어린이날",      color:"red" },
+  { date:"2026-05-08", label:"어버이날",      color:"amber" },
+  { date:"2026-05-14", label:"로즈데이",      color:"blue" },
+  { date:"2026-05-15", label:"스승의 날",     color:"blue" },
+  { date:"2026-05-19", label:"성년의 날",     color:"amber" },
+  { date:"2026-05-21", label:"부부의 날",     color:"blue" },
+  { date:"2026-05-24", label:"부처님오신날",  color:"red" },
+  { date:"2026-05-25", label:"대체공휴일",    color:"red" },
+];
+
+/* ===== Helpers ===== */
+function parseDate(s){
+  // accepts "2026.5.1" or "2026-05-01"
+  const parts = s.replace(/-/g,".").split(".").map(Number);
+  return new Date(parts[0], parts[1]-1, parts[2]);
+}
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+function ymd(d){ return d.toISOString().slice(0,10); }
+function isoWeek(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yStart = new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return Math.ceil((((t - yStart)/86400000)+1)/7);
+}
+
+/* Build day list from RANGE_START to RANGE_END (exclusive) */
+const DAYS = [];
+for(let d = new Date(RANGE_START); d < RANGE_END; d.setDate(d.getDate()+1)){
+  DAYS.push(new Date(d));
+}
+const TOTAL_W = DAYS.length * DAY_W;
+
+/* Group days by ISO week and month */
+function buildHeaderGroups(){
+  const months = [];
+  const weeks = [];
+  let curM = null, curW = null;
+  DAYS.forEach((d,i) => {
+    const mKey = d.getMonth();
+    if(!curM || curM.m !== mKey){
+      curM = { m:mKey, label:(d.getMonth()+1)+"월", start:i, count:0 };
+      months.push(curM);
+    }
+    curM.count++;
+
+    const w = isoWeek(d);
+    if(!curW || curW.w !== w){
+      curW = { w, label:"W"+w, start:i, count:0 };
+      weeks.push(curW);
+    }
+    curW.count++;
+  });
+  return { months, weeks };
+}
+
+/* ===== Build top bar selects ===== */
+function buildFilters(){
+  const brands = Array.from(new Set(DATA.map(d=>d.BRAND)));
+  const brandSel = document.getElementById("brandSel");
+  brandSel.innerHTML = '<option value="ALL">전체 브랜드</option>' +
+    brands.map(b=>`<option value="${b}">${b}</option>`).join("");
+
+  const ch = Array.from(new Set(DATA.map(d=>d.CHANNEL)));
+  const chSel = document.getElementById("channelSel");
+  ch.forEach(c => { const o=document.createElement("option"); o.value=c; o.textContent=c; chSel.appendChild(o); });
+
+  ["brandSel","channelSel","statusSel"].forEach(id=>{
+    document.getElementById(id).addEventListener("change", render);
+  });
+}
+
+/* ===== Header rendering ===== */
+function renderHeader(){
+  const { months, weeks } = buildHeaderGroups();
+  const calHead = document.getElementById("calHead");
+  calHead.style.width = TOTAL_W + "px";
+
+  // month row
+  const monthRow = document.createElement("div");
+  monthRow.className = "month-row";
+  monthRow.style.gridTemplateColumns = months.map(m => (m.count*DAY_W)+"px").join(" ");
+  months.forEach(m => {
+    const c = document.createElement("div");
+    c.className = "month-cell";
+    c.textContent = m.label;
+    monthRow.appendChild(c);
+  });
+  calHead.appendChild(monthRow);
+
+  // week row
+  const weekRow = document.createElement("div");
+  weekRow.className = "week-row";
+  weekRow.style.gridTemplateColumns = weeks.map(w => (w.count*DAY_W)+"px").join(" ");
+  weeks.forEach(w => {
+    const c = document.createElement("div");
+    c.className = "week-cell";
+    c.textContent = w.label;
+    weekRow.appendChild(c);
+  });
+  calHead.appendChild(weekRow);
+
+  // day row
+  const dayRow = document.createElement("div");
+  dayRow.className = "day-row";
+  dayRow.style.gridTemplateColumns = `repeat(${DAYS.length}, ${DAY_W}px)`;
+  DAYS.forEach(d => {
+    const c = document.createElement("div");
+    c.className = "day-cell";
+    const dow = d.getDay();
+    if(dow === 0 || dow === 6) c.classList.add("weekend");
+    if(d.getTime() === TODAY.getTime()) c.classList.add("today");
+    c.textContent = d.getDate();
+    dayRow.appendChild(c);
+  });
+  calHead.appendChild(dayRow);
+
+  // side head spacer (same height as cal head)
+  const sideHead = document.getElementById("sideHead");
+  sideHead.style.height = (22 + 20 + 22) + "px";
+  sideHead.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-weight:700;color:#374151;">주요 일정</div>`;
+}
+
+/* ===== Side + rows rendering ===== */
+function renderBody(){
+  const sideBody = document.getElementById("sideBody");
+  const rowsArea = document.getElementById("rowsArea");
+  sideBody.innerHTML = "";
+  rowsArea.innerHTML = "";
+  rowsArea.style.width = TOTAL_W + "px";
+
+  const brand = document.getElementById("brandSel").value;
+  const channelFilter = document.getElementById("channelSel").value;
+  const statusFilter = document.getElementById("statusSel").value;
+
+  const filtered = DATA.filter(d =>
+    (brand === "ALL" || d.BRAND === brand) &&
+    (channelFilter === "ALL" || d.CHANNEL === channelFilter) &&
+    (statusFilter === "ALL" || d.STATUS === statusFilter)
+  );
+  const rows2026 = filtered.filter(d => parseDate(d.START_DATE).getFullYear() === 2026);
+  const rows2025 = filtered.filter(d => parseDate(d.START_DATE).getFullYear() === 2025);
+
+  /* === Holidays row (주요 일정) === */
+  sideBody.appendChild(makeSideCell("주요 일정", "#fff", true));
+  const holRow = document.createElement("div");
+  holRow.className = "channel-row holiday-row";
+  HOLIDAYS_2026.forEach(h => {
+    const d = parseDate(h.date);
+    const offset = daysBetween(RANGE_START, d);
+    if(offset < 0 || offset >= DAYS.length) return;
+    const el = document.createElement("div");
+    el.className = "holiday " + h.color;
+    el.style.left = (offset * DAY_W + 2) + "px";
+    el.style.width = (DAY_W - 4) + "px";
+    el.textContent = h.label;
+    holRow.appendChild(el);
+  });
+  rowsArea.appendChild(holRow);
+
+  /* === Year tag 2026 === */
+  sideBody.appendChild(makeYearTag("2026", "y26"));
+  rowsArea.appendChild(makeSectionDivider());
+
+  /* === Channel rows === */
+  const activeChannels = channelFilter === "ALL"
+    ? CHANNEL_ORDER
+    : [channelFilter];
+
+  activeChannels.forEach(ch => {
+    sideBody.appendChild(makeSideCell(ch, CHANNEL_COLOR[ch] || "#9ca3af"));
+    const row = document.createElement("div");
+    row.className = "channel-row";
+
+    rows2026.filter(d => d.CHANNEL === ch).forEach(promo => {
+      const bar = makeBar(promo, ch, false);
+      if(bar) row.appendChild(bar);
+    });
+
+    rowsArea.appendChild(row);
+  });
+
+  /* === 2025 비교 영역 (data.json의 2025년 행을 같은 5월 캘린더에 오버레이) === */
+  sideBody.appendChild(makeYearTag("2025", "y25"));
+  rowsArea.appendChild(makeSectionDivider());
+
+  activeChannels.forEach(ch => {
+    sideBody.appendChild(makeSideCell(ch, CHANNEL_COLOR[ch] || "#9ca3af"));
+    const row = document.createElement("div");
+    row.className = "channel-row";
+    rows2025.filter(d => d.CHANNEL === ch).forEach(promo => {
+      const bar = makeBar(promo, ch, true);
+      if(bar) row.appendChild(bar);
+    });
+    rowsArea.appendChild(row);
+  });
+
+  /* === Today vertical line === */
+  const todayOffset = daysBetween(RANGE_START, TODAY);
+  if(todayOffset >= 0 && todayOffset < DAYS.length){
+    const line = document.createElement("div");
+    line.className = "today-line";
+    line.style.left = (todayOffset * DAY_W + DAY_W/2) + "px";
+    rowsArea.appendChild(line);
+  }
+}
+
+function makeSideCell(label, color, isHeader){
+  const el = document.createElement("div");
+  el.className = "side-cell";
+  el.innerHTML =
+    (isHeader ? "" : `<span class="dot" style="background:${color}"></span>`) +
+    `<span>${label}</span><span class="chev">›</span>`;
+  if(isHeader){
+    el.style.fontWeight = "700";
+    el.style.color = "#374151";
+  }
+  return el;
+}
+function makeYearTag(year, cls){
+  const wrap = document.createElement("div");
+  wrap.className = "side-section-divider";
+  wrap.style.height = "auto";
+  wrap.style.padding = "0";
+  wrap.innerHTML = `<div class="year-tag ${cls}">${year}</div>`;
+  return wrap;
+}
+function makeSectionDivider(){
+  const d = document.createElement("div");
+  d.className = "section-divider-row";
+  return d;
+}
+
+function makeBar(promo, ch, is2025){
+  let s = parseDate(promo.START_DATE);
+  let e = parseDate(promo.END_DATE);
+  // 2025 행은 같은 5월 캘린더에 겹쳐 보여주기 위해 연도를 RANGE_START 연도로 시프트
+  if(is2025){
+    const shift = RANGE_START.getFullYear() - s.getFullYear();
+    s = new Date(s.getFullYear()+shift, s.getMonth(), s.getDate());
+    e = new Date(e.getFullYear()+shift, e.getMonth(), e.getDate());
+  }
+  const startOffset = Math.max(0, daysBetween(RANGE_START, s));
+  const endOffset   = Math.min(DAYS.length, daysBetween(RANGE_START, e) + 1);
+  if(endOffset <= 0 || startOffset >= DAYS.length) return null;
+
+  const bar = document.createElement("div");
+  bar.className = "bar"
+    + (promo.STATUS === "종료" ? " ended" : "")
+    + (is2025 ? " dim" : "");
+  bar.style.left  = (startOffset * DAY_W + 2) + "px";
+  bar.style.width = ((endOffset - startOffset) * DAY_W - 4) + "px";
+  bar.style.background = CHANNEL_COLOR[ch] || "#6b7280";
+
+  const tagLabel = pickTag(promo.PROMO_NAME);
+  bar.innerHTML =
+    `<span class="nm">${promo.PROMO_NAME}</span>` +
+    (tagLabel ? `<span class="tag">${tagLabel}</span>` : "");
+
+  attachTooltip(bar, promo);
+  return bar;
+}
+
+function pickTag(name){
+  if(/쿠폰/.test(name)) return "쿠폰";
+  if(/프로모/.test(name)) return "프로모션";
+  if(/기획전|컬렉션|페스타|기획|단독/.test(name)) return "기획전";
+  if(/출시|발매|신상/.test(name)) return "신상";
+  return "자체";
+}
+
+/* ===== Tooltip ===== */
+const tt = document.getElementById("tt");
+function attachTooltip(el, promo){
+  el.addEventListener("mousemove", e => {
+    tt.innerHTML =
+      `<div><b>${promo.PROMO_NAME}</b></div>` +
+      `<div>${promo.BRAND} · ${promo.CHANNEL}</div>` +
+      `<div>${promo.START_DATE} ~ ${promo.END_DATE}</div>` +
+      `<div>상태: ${promo.STATUS}</div>`;
+    tt.style.left = (e.clientX + 14) + "px";
+    tt.style.top  = (e.clientY + 14) + "px";
+    tt.style.opacity = 1;
+  });
+  el.addEventListener("mouseleave", () => { tt.style.opacity = 0; });
+}
+
+/* ===== Legend ===== */
+function renderLegend(){
+  const legend = document.getElementById("legend");
+  legend.innerHTML = CHANNEL_ORDER.map(ch =>
+    `<span class="item"><span class="swatch" style="background:${CHANNEL_COLOR[ch]}"></span>${ch}</span>`
+  ).join("");
+}
+
+/* ===== Main ===== */
+function render(){
+  document.documentElement.style.setProperty("--day-w", DAY_W + "px");
+  renderBody();
+}
+
+document.getElementById("todayLabel").textContent =
+  `${TODAY.getFullYear()}.${String(TODAY.getMonth()+1).padStart(2,"0")}.${String(TODAY.getDate()).padStart(2,"0")} (${DOW_LABEL[TODAY.getDay()]})`;
+
+/* ===== Data loading: fetch data.json first; fall back to inline DATA ===== */
+async function boot(){
+  try {
+    const res = await fetch("data.json", { cache: "no-store" });
+    if(res.ok){
+      const fresh = await res.json();
+      if(Array.isArray(fresh) && fresh.length){
+        DATA = fresh;
+        console.log(`[dashboard] data.json loaded (${fresh.length} rows)`);
+      }
+    }
+  } catch(e){
+    console.warn("[dashboard] fetch(data.json) blocked — using inline DATA. Serve via `python3 -m http.server` to load live JSON.");
+  }
+  buildFilters();
+  renderLegend();
+  renderHeader();
+  render();
+
+  // 초기 가로 스크롤 위치를 오늘 기준 거의 왼쪽 끝에 (과거는 역방향 스크롤로 확인)
+  requestAnimationFrame(() => {
+    const boardScroll = document.getElementById("boardScroll");
+    const todayOff = daysBetween(RANGE_START, TODAY);
+    if(todayOff > 0){
+      boardScroll.scrollLeft = Math.max(0, todayOff * DAY_W - 40);
+    }
+  });
+}
+boot();
+</script>
+</body>
+</html>
