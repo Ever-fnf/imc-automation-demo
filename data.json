@@ -150,13 +150,5 @@
     "START_DATE": "2026.5.1",
     "END_DATE": "2026.5.20",
     "STATUS": "진행중"
-  },
-  {
-    "BRAND": "MLB",
-    "CHANNEL": "네이버스토어",
-    "PROMO_NAME": "네이버스토어 샘플",
-    "START_DATE": "2026.5.18",
-    "END_DATE": "2026.5.19",
-    "STATUS": "진행중"
   }
 ]
